@@ -1,0 +1,106 @@
+module triangle (clk, reset, nt, xi, yi, busy, po, xo, yo);
+  input clk, reset, nt;
+  input [2:0] xi, yi;
+  output reg busy, po;
+  output reg [2:0] xo, yo;
+  reg [2:0]x1, y1, x2, y2, x3, y3;
+  reg [3:0]x_temp, y_temp;
+  reg [2:0]state;
+  wire [4:0]area = (x2 - x1) * (y3 - y1);
+  wire [5:0]sub_tri1 = (x1 - x_temp) * (y2 - y_temp) - (y1 - y_temp) * (x2 - x_temp);
+  wire [5:0]sub_tri2 = (x2 - x_temp) * (y3 - y_temp) - (y2 - y_temp) * (x3 - x_temp);
+  wire [5:0]sub_tri3 = (x1 - x_temp) * (y3 - y_temp) - (y1 - y_temp) * (x3 - x_temp);
+  wire [4:0]abs_tri1 = (sub_tri1[5] == 1)?(~sub_tri1[4:0])+1:sub_tri1[4:0];
+  wire [4:0]abs_tri2 = (sub_tri2[5] == 1)?(~sub_tri2[4:0])+1:sub_tri2[4:0];
+  wire [4:0]abs_tri3 = (sub_tri3[5] == 1)?(~sub_tri3[4:0])+1:sub_tri3[4:0];
+  wire [4:0]total = abs_tri1 + abs_tri2 + abs_tri3;
+  
+always@(posedge clk)
+begin
+  if(reset)
+    begin
+      busy <= 1'b0;
+      x1 <= 3'd0;
+      x2 <= 3'd0;
+      x3 <= 3'd0;
+      y1 <= 3'd0;
+      y2 <= 3'd0;
+      y3 <= 3'd0;
+      x_temp <= 3'd0;
+      y_temp <= 3'd0;
+      po <= 1'b0;
+      state <= 3'd0;
+    end
+  else
+    begin
+      case(state)
+        3'd0:begin
+          if(nt)
+            begin
+              x1 <= xi;
+              y1 <= yi;
+              x_temp <= xi - 1;
+              y_temp <= yi;
+              state <= 3'd1;
+              po <= 0;
+            end
+        end
+        3'd1:begin
+          x2 <= xi;
+          y2 <= yi;
+          state <= 3'd2;
+          busy <= 1'b1;
+        end
+        3'd2:begin
+          x3 <= xi;
+          y3 <= yi;
+          state <= 3'd3;
+        end
+        3'd3:begin
+          if(x_temp <= x2)
+            begin
+              if(x_temp == x3 && y_temp == y3)
+                begin
+                  state <= 3'd4;
+                  po <= 1;
+                  xo <= x_temp;
+                  yo <= y_temp;
+                end
+            else
+              begin   
+                x_temp <= x_temp + 1;
+                if(total == area)
+                  begin
+                    po <= 1;
+                    xo <= x_temp;
+                    yo <= y_temp;
+                  end
+                else
+                  begin
+                    po <= 0;
+                  end   
+              end          
+            end
+          else
+            begin
+              if(y_temp <= y3)
+                begin
+                  y_temp <= y_temp + 1;
+                  x_temp <= x1;
+                  po <= 0;
+                end
+              else
+                begin
+                  state <= 3'd4;
+                end         
+            end
+        end
+        3'd4:begin
+          po <= 0;
+          busy <= 0;
+          state <= 3'd0;
+        end 
+      endcase 
+    end               
+end
+endmodule
